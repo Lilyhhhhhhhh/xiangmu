@@ -50,10 +50,10 @@ export default function Booking() {
       }
     }
 
-    if (mounted && isAuthenticated) {
+    if (mounted && isAuthenticated && serviceId) {
       fetchService()
     }
-  }, [serviceId, router, getServiceById, mounted, isAuthenticated])
+  }, [serviceId, mounted, isAuthenticated])
 
   const handleDateSelect = (date) => {
     setSelectedDate(date)

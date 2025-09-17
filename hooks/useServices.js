@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { servicesAPI } from '../utils/database'
 
 /**
@@ -25,7 +25,7 @@ export function useServices() {
   }
 
   // 根据ID获取服务
-  const getServiceById = async (id) => {
+  const getServiceById = useCallback(async (id) => {
     try {
       const service = await servicesAPI.getById(id)
       return service
@@ -33,7 +33,7 @@ export function useServices() {
       console.error('获取服务详情失败:', err)
       throw err
     }
-  }
+  }, [])
 
   // 初始化时获取服务列表
   useEffect(() => {

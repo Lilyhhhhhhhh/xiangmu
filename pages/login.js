@@ -145,12 +145,6 @@ export default function Login() {
                   </div>
                 )}
 
-                {/* 登录提示 */}
-                <div className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="font-medium mb-1">提示：</div>
-                  <div>输入任意邮箱和密码即可登录</div>
-                </div>
-
                 {/* 登录按钮 */}
                 <Button
                   type="submit"
