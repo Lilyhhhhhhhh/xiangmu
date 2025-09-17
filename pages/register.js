@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -6,27 +6,26 @@ import Layout from '../components/layout/Layout'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
+import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
+import { validateEmail, validatePassword } from '../utils/validation'
+import Toast from '../components/common/Toast'
 
 export default function Register() {
   const router = useRouter()
+  const { register, isAuthenticated, loading: authLoading } = useAuth()
+  const { success, error } = useToast()
   const [formData, setFormData] = useState({
-    phone: '',
+    email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    name: ''
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
 
-  const validatePhone = (phone) => {
-    const phoneRegex = /^1[3-9]\d{9}$/
-    return phoneRegex.test(phone)
-  }
-
-  const validatePassword = (password) => {
-    // 至少8位，包含大小写字母、数字和特殊字符
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
-    return passwordRegex.test(password)
-  }
+  // 注册页面不需要检查登录状态，允许已登录用户注册新账号
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -47,16 +46,22 @@ export default function Register() {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.phone) {
-      newErrors.phone = '请输入手机号码'
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = '请输入正确的手机号码格式'
+    if (!formData.name) {
+      newErrors.name = '请输入姓名'
+    } else if (formData.name.length < 2) {
+      newErrors.name = '姓名至少2个字符'
+    }
+
+    if (!formData.email) {
+      newErrors.email = '请输入邮箱地址'
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = '请输入正确的邮箱格式'
     }
 
     if (!formData.password) {
       newErrors.password = '请输入密码'
-    } else if (!validatePassword(formData.password)) {
-      newErrors.password = '密码至少8位，包含大小写字母、数字和特殊字符'
+    } else if (formData.password.length < 6) {
+      newErrors.password = '密码长度至少6位'
     }
 
     if (!formData.confirmPassword) {
@@ -69,6 +74,11 @@ export default function Register() {
     return Object.keys(newErrors).length === 0
   }
 
+  const handleGoToLogin = () => {
+    setShowSuccessToast(false)
+    router.push('/login')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -79,16 +89,14 @@ export default function Register() {
     setLoading(true)
     
     try {
-      // 模拟注册API调用
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const result = await register(formData)
       
-      // 模拟注册成功
-      console.log('注册数据:', formData)
-      alert('注册成功！即将跳转到登录页面')
-      
-      // 跳转到登录页面
-      router.push('/login')
-      
+      if (result.success) {
+        // 注册成功，显示成功提示
+        setShowSuccessToast(true)
+      } else {
+        setErrors({ submit: result.error })
+      }
     } catch (error) {
       console.error('注册失败:', error)
       setErrors({ submit: '注册失败，请重试' })
@@ -124,15 +132,27 @@ export default function Register() {
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
             <Card>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* 手机号输入 */}
+                {/* 姓名输入 */}
                 <Input
-                  label="手机号码"
-                  name="phone"
-                  type="tel"
-                  placeholder="请输入手机号码"
-                  value={formData.phone}
+                  label="姓名"
+                  name="name"
+                  type="text"
+                  placeholder="请输入您的姓名"
+                  value={formData.name}
                   onChange={handleInputChange}
-                  error={errors.phone}
+                  error={errors.name}
+                  required
+                />
+
+                {/* 邮箱输入 */}
+                <Input
+                  label="邮箱地址"
+                  name="email"
+                  type="email"
+                  placeholder="请输入邮箱地址"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  error={errors.email}
                   required
                 />
 
@@ -141,7 +161,7 @@ export default function Register() {
                   label="密码"
                   name="password"
                   type="password"
-                  placeholder="至少8位，包含大小写字母、数字和特殊字符"
+                  placeholder="至少6位字符"
                   value={formData.password}
                   onChange={handleInputChange}
                   error={errors.password}
@@ -170,11 +190,11 @@ export default function Register() {
                 {/* 注册按钮 */}
                 <Button
                   type="submit"
-                  loading={loading}
+                  loading={loading || authLoading}
                   className="w-full"
                   size="large"
                 >
-                  {loading ? '注册中...' : '立即注册'}
+                  {loading || authLoading ? '注册中...' : '立即注册'}
                 </Button>
 
                 {/* 登录链接 */}
@@ -188,6 +208,27 @@ export default function Register() {
             </Card>
           </div>
         </div>
+
+        {/* 注册成功提示 */}
+        {showSuccessToast && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-8 max-w-sm mx-4 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">注册成功！</h3>
+              <p className="text-gray-600 mb-6">您的账户已创建成功，请登录以继续使用服务。</p>
+              <button
+                onClick={handleGoToLogin}
+                className="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
+              >
+                去登录
+              </button>
+            </div>
+          </div>
+        )}
       </Layout>
     </>
   )

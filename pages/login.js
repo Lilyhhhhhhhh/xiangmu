@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -6,20 +6,25 @@ import Layout from '../components/layout/Layout'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
+import { useAuth } from '../hooks/useAuth'
+import { validateEmail } from '../utils/validation'
 
 export default function Login() {
   const router = useRouter()
+  const { login, isAuthenticated, loading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
-    phone: '',
+    email: '',
     password: ''
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
-  const validatePhone = (phone) => {
-    const phoneRegex = /^1[3-9]\d{9}$/
-    return phoneRegex.test(phone)
-  }
+  // 如果已登录，重定向到服务页面
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/services')
+    }
+  }, [isAuthenticated, router])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -40,10 +45,10 @@ export default function Login() {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.phone) {
-      newErrors.phone = '请输入手机号码'
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = '请输入正确的手机号码格式'
+    if (!formData.email) {
+      newErrors.email = '请输入邮箱地址'
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = '请输入正确的邮箱格式'
     }
 
     if (!formData.password) {
@@ -66,19 +71,17 @@ export default function Login() {
     setLoading(true)
     
     try {
-      // 模拟登录API调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = await login(formData)
       
-      // 模拟登录成功
-      console.log('登录数据:', formData)
-      alert('登录成功！')
-      
-      // 跳转到首页或预约页面
-      router.push('/')
-      
+      if (result.success) {
+        // 登录成功，跳转到服务页面
+        router.push('/services')
+      } else {
+        setErrors({ submit: result.error })
+      }
     } catch (error) {
       console.error('登录失败:', error)
-      setErrors({ submit: '登录失败，请检查手机号和密码' })
+      setErrors({ submit: '登录失败，请重试' })
     } finally {
       setLoading(false)
     }
@@ -111,15 +114,15 @@ export default function Login() {
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
             <Card>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* 手机号输入 */}
+                {/* 邮箱输入 */}
                 <Input
-                  label="手机号码"
-                  name="phone"
-                  type="tel"
-                  placeholder="请输入手机号码"
-                  value={formData.phone}
+                  label="邮箱地址"
+                  name="email"
+                  type="email"
+                  placeholder="请输入邮箱地址"
+                  value={formData.email}
                   onChange={handleInputChange}
-                  error={errors.phone}
+                  error={errors.email}
                   required
                 />
 
@@ -142,14 +145,20 @@ export default function Login() {
                   </div>
                 )}
 
+                {/* 登录提示 */}
+                <div className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="font-medium mb-1">提示：</div>
+                  <div>输入任意邮箱和密码即可登录</div>
+                </div>
+
                 {/* 登录按钮 */}
                 <Button
                   type="submit"
-                  loading={loading}
+                  loading={loading || authLoading}
                   className="w-full"
                   size="large"
                 >
-                  {loading ? '登录中...' : '登录'}
+                  {loading || authLoading ? '登录中...' : '登录'}
                 </Button>
 
                 {/* 注册链接 */}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import Layout from '../components/layout/Layout'
@@ -7,19 +7,62 @@ import DateSelector from '../components/booking/DateSelector'
 import TimeSelector from '../components/booking/TimeSelector'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
+import { useAuth } from '../hooks/useAuth'
+
+// 模拟服务数据
+const mockServices = [
+  {
+    id: 1,
+    name: '基础面部护理',
+    description: '深层清洁、去角质、补水保湿、适合所有肌肤类型',
+    price: 298,
+    duration: 60,
+    category: '面部护理'
+  },
+  {
+    id: 2,
+    name: '抗衰老面部护理',
+    description: '采用先进抗衰技术、美容肌肽、减少细纹、恢复年轻光彩',
+    price: 498,
+    duration: 90,
+    category: '面部护理'
+  },
+  // 可以添加更多服务...
+]
 
 export default function Booking() {
   const router = useRouter()
+  const { isAuthenticated, mounted } = useAuth()
+  const { serviceId } = router.query
+  
   const [currentStep, setCurrentStep] = useState(2) // 从第2步开始（选择时间）
-  const [selectedService, setSelectedService] = useState({
-    id: 1,
-    name: '抗衰老面部护理',
-    description: '深层清洁、补水保湿、舒缓肌肤',
-    price: 298,
-    duration: 60
-  })
+  const [selectedService, setSelectedService] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedTime, setSelectedTime] = useState(null)
+
+  // 检查用户是否已登录 - 只有在客户端挂载后才检查
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
+      router.push('/login')
+      return
+    }
+  }, [isAuthenticated, mounted, router])
+
+  // 根据serviceId获取服务信息
+  useEffect(() => {
+    if (serviceId) {
+      const service = mockServices.find(s => s.id === parseInt(serviceId))
+      if (service) {
+        setSelectedService(service)
+      } else {
+        // 如果没找到服务，返回服务选择页面
+        router.push('/services')
+      }
+    } else {
+      // 如果没有serviceId，返回服务选择页面
+      router.push('/services')
+    }
+  }, [serviceId, router])
 
   const handleDateSelect = (date) => {
     setSelectedDate(date)
@@ -45,7 +88,21 @@ export default function Booking() {
   }
 
   const handleBackToServices = () => {
-    router.push('/')
+    router.push('/services')
+  }
+
+  // 如果还没有加载服务信息，显示加载状态
+  if (!selectedService) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">加载中...</p>
+          </div>
+        </div>
+      </Layout>
+    )
   }
 
   return (
@@ -96,20 +153,9 @@ export default function Booking() {
                     <TimeSelector
                       onTimeSelect={handleTimeSelect}
                       selectedTime={selectedTime}
+                      selectedDate={selectedDate}
+                      onConfirmTime={handleConfirmTime}
                     />
-                  </div>
-                )}
-
-                {/* 确认按钮 */}
-                {selectedDate && selectedTime && (
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={handleConfirmTime}
-                      size="large"
-                      className="px-12"
-                    >
-                      确认时间
-                    </Button>
                   </div>
                 )}
 

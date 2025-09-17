@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 export default function DateSelector({ onDateSelect, selectedDate }) {
-  // 生成接下来7天的日期
+  // 生成接下来7天的日期（一周）
   const generateDates = () => {
     const dates = []
     const today = new Date()
@@ -15,18 +15,22 @@ export default function DateSelector({ onDateSelect, selectedDate }) {
     return dates
   }
 
-  const dates = generateDates()
-  const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const [availableDates] = useState(generateDates())
 
   const formatDate = (date) => {
-    const month = date.getMonth() + 1
-    const day = date.getDate()
-    return `${month}月${day}日`
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const getWeekdayName = (date) => {
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+    return weekdays[date.getDay()]
   }
 
   const isSelected = (date) => {
-    if (!selectedDate) return false
-    return date.toDateString() === selectedDate.toDateString()
+    return selectedDate && formatDate(date) === formatDate(selectedDate)
   }
 
   const handleDateClick = (date) => {
@@ -35,25 +39,27 @@ export default function DateSelector({ onDateSelect, selectedDate }) {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">选择日期</h3>
-      <div className="grid grid-cols-7 gap-3">
-        {dates.map((date, index) => (
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">选择日期</h3>
+      
+      {/* 日期选择网格 - 一周7天 */}
+      <div className="grid grid-cols-7 gap-3 mb-6">
+        {availableDates.map((date, index) => (
           <button
             key={index}
             onClick={() => handleDateClick(date)}
             className={`
-              p-3 rounded-lg text-center transition-colors duration-200 border
+              p-4 rounded-xl text-center transition-all duration-200 border-2
               ${isSelected(date)
-                ? 'bg-primary-500 text-white border-primary-500'
+                ? 'bg-primary-500 text-white border-primary-500 shadow-lg'
                 : 'bg-white text-gray-700 border-gray-200 hover:border-primary-300 hover:bg-primary-50'
               }
             `}
           >
-            <div className="text-xs text-gray-500 mb-1">
-              {weekDays[date.getDay()]}
+            <div className="text-sm font-medium mb-1">
+              {getWeekdayName(date)}
             </div>
-            <div className="text-sm font-medium">
-              {formatDate(date)}
+            <div className="text-lg font-bold">
+              {date.getMonth() + 1}月{date.getDate()}日
             </div>
           </button>
         ))}

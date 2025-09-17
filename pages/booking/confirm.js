@@ -5,38 +5,93 @@ import Layout from '../../components/layout/Layout'
 import StepIndicator from '../../components/booking/StepIndicator'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
+import ProtectedRoute from '../../components/auth/ProtectedRoute'
+import { useAuth } from '../../hooks/useAuth'
+import { formatDateChinese } from '../../utils/dateUtils'
+
+// 模拟服务数据
+const mockServices = [
+  {
+    id: 1,
+    name: '基础面部护理',
+    description: '深层清洁、去角质、补水保湿、适合所有肌肤类型',
+    price: 298,
+    duration: 60,
+    category: '面部护理'
+  },
+  {
+    id: 2,
+    name: '抗衰老面部护理',
+    description: '采用先进抗衰技术、美容肌肽、减少细纹、恢复年轻光彩',
+    price: 498,
+    duration: 90,
+    category: '面部护理'
+  },
+]
 
 export default function BookingConfirm() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { serviceId, date, time } = router.query
   const [loading, setLoading] = useState(false)
-  
-  // 模拟从路由参数或状态中获取的预约信息
-  const [bookingData, setBookingData] = useState({
-    service: {
-      id: 2,
-      name: '抗衰老面部护理',
-      description: '采用先进抗衰技术、美容肌肽、减少细纹、恢复年轻光彩',
-      price: 498,
-      duration: 90,
-      category: '面部护理'
-    },
-    selectedDate: '2025年9月16日星期二',
-    selectedTime: '17:00'
-  })
+  const [bookingData, setBookingData] = useState(null)
+
+  // 从路由参数构建预约数据
+  useEffect(() => {
+    if (serviceId && date && time) {
+      const service = mockServices.find(s => s.id === parseInt(serviceId))
+      if (service) {
+        const selectedDate = new Date(date)
+        setBookingData({
+          service,
+          selectedDate: formatDateChinese(selectedDate),
+          selectedTime: time,
+          rawDate: selectedDate
+        })
+      } else {
+        router.push('/services')
+      }
+    } else {
+      router.push('/services')
+    }
+  }, [serviceId, date, time, router])
 
   const handleBackToModify = () => {
     router.back()
   }
 
   const handleConfirmBooking = async () => {
+    if (!bookingData || !user) return
+    
     setLoading(true)
     
     try {
       // 模拟提交预约API调用
       await new Promise(resolve => setTimeout(resolve, 2000))
       
+      // 构建预约记录
+      const newBooking = {
+        id: Date.now().toString(),
+        userId: user.id,
+        serviceId: bookingData.service.id,
+        serviceName: bookingData.service.name,
+        serviceDescription: bookingData.service.description,
+        servicePrice: bookingData.service.price,
+        serviceDuration: bookingData.service.duration,
+        serviceCategory: bookingData.service.category,
+        bookingDate: bookingData.selectedDate,
+        bookingTime: bookingData.selectedTime,
+        status: '待确认',
+        createdAt: new Date().toISOString()
+      }
+      
+      // 保存到本地存储（模拟数据库）
+      const existingBookings = JSON.parse(localStorage.getItem('userBookings') || '[]')
+      existingBookings.push(newBooking)
+      localStorage.setItem('userBookings', JSON.stringify(existingBookings))
+      
       // 预约成功，跳转到我的预约页面
-      alert('预约成功！')
+      alert('预约成功！我们会尽快联系您确认预约。')
       router.push('/my-bookings')
       
     } catch (error) {
@@ -47,8 +102,24 @@ export default function BookingConfirm() {
     }
   }
 
+  // 如果还没有加载预约数据，显示加载状态
+  if (!bookingData) {
+    return (
+      <ProtectedRoute>
+        <Layout>
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">加载预约信息...</p>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    )
+  }
+
   return (
-    <>
+    <ProtectedRoute>
       <Head>
         <title>确认预约 - 美容预约系统</title>
         <meta name="description" content="确认您的预约信息" />
@@ -217,6 +288,6 @@ export default function BookingConfirm() {
           </div>
         </div>
       </Layout>
-    </>
+    </ProtectedRoute>
   )
 }

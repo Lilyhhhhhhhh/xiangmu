@@ -1,66 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '../components/layout/Layout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
-
-// 模拟预约数据
-const mockBookings = [
-  {
-    id: 1,
-    serviceName: '基础面部护理',
-    description: '深层清洁、去角质、补水保湿、适合所有肌肤类型',
-    category: '面部护理',
-    duration: 60,
-    price: 298,
-    bookingDate: '2025年9月13日星期六',
-    bookingTime: '10:00',
-    createdDate: '2025/9/14',
-    status: '待确认',
-    statusColor: 'yellow'
-  },
-  {
-    id: 2,
-    serviceName: '深层补水护理',
-    description: '专业补水面膜、精华导入，改善肌肤干燥问题',
-    category: '面部护理',
-    duration: 90,
-    price: 398,
-    bookingDate: '2025年9月15日星期一',
-    bookingTime: '14:00',
-    createdDate: '2025/9/12',
-    status: '已确认',
-    statusColor: 'green'
-  }
-]
+import ProtectedRoute from '../components/auth/ProtectedRoute'
+import { useAuth } from '../hooks/useAuth'
 
 export default function MyBookings() {
-  const [selectedStatus, setSelectedStatus] = useState('全部')
-  
-  const statusTabs = [
-    { name: '全部', count: 4 },
-    { name: '待确认', count: 3 },
-    { name: '已确认', count: 0 },
-    { name: '已完成', count: 0 }
-  ]
+  const { user } = useAuth()
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const getStatusStyles = (status) => {
-    const styles = {
-      '待确认': 'bg-yellow-100 text-yellow-800',
-      '已确认': 'bg-green-100 text-green-800',
-      '已完成': 'bg-gray-100 text-gray-800',
-      '已取消': 'bg-red-100 text-red-800'
+  // 加载用户的预约记录
+  useEffect(() => {
+    if (user) {
+      loadUserBookings()
     }
-    return styles[status] || 'bg-gray-100 text-gray-800'
+  }, [user])
+
+  const loadUserBookings = () => {
+    try {
+      const allBookings = JSON.parse(localStorage.getItem('userBookings') || '[]')
+      const userBookings = allBookings.filter(booking => booking.userId === user.id)
+      setBookings(userBookings)
+    } catch (error) {
+      console.error('加载预约记录失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const getStatusStyles = (status) => {
+    // 简化状态样式，只保留待确认状态
+    return 'bg-yellow-100 text-yellow-800'
   }
 
-  const filteredBookings = selectedStatus === '全部' 
-    ? mockBookings 
-    : mockBookings.filter(booking => booking.status === selectedStatus)
-
   return (
-    <>
+    <ProtectedRoute>
       <Head>
         <title>我的预约 - 美容预约系统</title>
         <meta name="description" content="查看和管理您的预约记录" />
@@ -72,33 +49,29 @@ export default function MyBookings() {
             {/* 页面标题 */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">我的预约</h1>
-              <p className="text-gray-600">管理您的所有预约记录</p>
+              <p className="text-gray-600">查看您的所有预约记录，所有预约均为待确认状态</p>
+              {bookings.length > 0 && (
+                <div className="mt-3 flex items-center text-sm text-gray-500">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  共 {bookings.length} 条预约记录
+                </div>
+              )}
             </div>
 
-            {/* 状态筛选标签 */}
-            <div className="mb-8">
-              <div className="flex flex-wrap gap-2">
-                {statusTabs.map(tab => (
-                  <button
-                    key={tab.name}
-                    onClick={() => setSelectedStatus(tab.name)}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200
-                      ${selectedStatus === tab.name
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                      }
-                    `}
-                  >
-                    {tab.name} ({tab.count})
-                  </button>
-                ))}
+            {/* 加载状态 */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                <p className="text-gray-600">加载预约记录...</p>
               </div>
-            </div>
+            )}
 
             {/* 预约列表 */}
-            <div className="space-y-4">
-              {filteredBookings.map(booking => (
+            {!loading && (
+              <div className="space-y-4">
+                {bookings.map(booking => (
                 <Card key={booking.id} className="hover:shadow-md transition-shadow duration-200">
                   <div className="flex items-start space-x-4">
                     {/* 服务图标 */}
@@ -116,7 +89,7 @@ export default function MyBookings() {
                             {booking.serviceName}
                           </h3>
                           <p className="text-gray-600 text-sm mb-3">
-                            {booking.description}
+                            {booking.serviceDescription}
                           </p>
                           
                           {/* 服务详情 */}
@@ -125,19 +98,19 @@ export default function MyBookings() {
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                               </svg>
-                              {booking.category}
+                              {booking.serviceCategory}
                             </span>
                             <span className="flex items-center">
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              {booking.duration}分钟
+                              {booking.serviceDuration}分钟
                             </span>
                             <span className="flex items-center">
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                               </svg>
-                              ¥{booking.price}
+                              ¥{booking.servicePrice}
                             </span>
                           </div>
                         </div>
@@ -172,8 +145,8 @@ export default function MyBookings() {
                             <svg className="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="font-medium">预约时间</span>
-                            <span className="ml-2">{booking.createdDate}</span>
+                            <span className="font-medium">创建时间</span>
+                            <span className="ml-2">{new Date(booking.createdAt).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
@@ -192,10 +165,12 @@ export default function MyBookings() {
                     </div>
                   </div>
                 </Card>
-              ))}
+                ))}
+              </div>
+            )}
 
-              {/* 空状态 */}
-              {filteredBookings.length === 0 && (
+            {/* 空状态 */}
+            {!loading && bookings.length === 0 && (
                 <div className="text-center py-16">
                   <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-6">
                     <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,11 +185,10 @@ export default function MyBookings() {
                     </Button>
                   </Link>
                 </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </Layout>
-    </>
+    </ProtectedRoute>
   )
 }
