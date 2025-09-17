@@ -3,7 +3,8 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/services": "pages/services.js",
+  "/": "pages/index.js",
+  "/login": "pages/login.js",
   "/my-bookings": "pages/my-bookings.js",
-  "/booking": "pages/booking.js",
-  "/booking/confirm": "pages/booking/confirm.js"
+  "/register": "pages/register.js"
 }
