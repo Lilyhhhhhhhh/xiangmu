@@ -1,19 +1,8 @@
 import { useState, useEffect, createContext, useContext } from 'react'
-import { useLocalStorage } from './useLocalStorage'
+import { supabase } from '../lib/supabase'
 
 // 创建认证上下文
 const AuthContext = createContext()
-
-// 模拟用户数据
-const mockUsers = [
-  {
-    id: '1',
-    email: 'user@example.com',
-    password: 'password123', // 实际应用中不应存储明文密码
-    name: '张三',
-    avatar: null
-  }
-]
 
 /**
  * 认证 Hook
@@ -30,13 +19,31 @@ export function useAuth() {
  * 认证提供者组件
  */
 export function AuthProvider({ children }) {
-  const [user, setUser] = useLocalStorage('user', null)
-  const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
-  // 确保只在客户端挂载后才显示认证相关内容
+  // 初始化认证状态
   useEffect(() => {
-    setMounted(true)
+    // 获取当前用户会话
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+      setMounted(true)
+    }
+
+    getInitialSession()
+
+    // 监听认证状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
   }, [])
 
   // 登录函数
@@ -44,25 +51,14 @@ export function AuthProvider({ children }) {
     setLoading(true)
     
     try {
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 纯前端登录 - 简化验证，只要有邮箱和密码就登录成功
-      if (!credentials.email || !credentials.password) {
-        throw new Error('请输入邮箱和密码')
-      }
-      
-      // 创建用户信息
-      const user = {
-        id: Date.now().toString(),
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
-        name: credentials.email.split('@')[0], // 使用邮箱前缀作为用户名
-        avatar: null
-      }
-      
-      setUser(user)
-      
-      return { success: true, user: user }
+        password: credentials.password,
+      })
+
+      if (error) throw error
+
+      return { success: true, user: data.user }
     } catch (error) {
       return { success: false, error: error.message }
     } finally {
@@ -75,11 +71,27 @@ export function AuthProvider({ children }) {
     setLoading(true)
     
     try {
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 纯前端注册 - 不检查用户是否存在，直接成功
-      // 注册成功但不自动登录，需要用户手动登录
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            name: userData.name || userData.email.split('@')[0]
+          }
+        }
+      })
+
+      if (error) throw error
+
+      // 如果需要邮箱验证，返回相应消息
+      if (data.user && !data.session) {
+        return { 
+          success: true, 
+          message: '注册成功！请检查您的邮箱并点击验证链接。',
+          needsVerification: true 
+        }
+      }
+
       return { success: true, message: '注册成功，请登录' }
     } catch (error) {
       return { success: false, error: error.message }
@@ -89,8 +101,16 @@ export function AuthProvider({ children }) {
   }
 
   // 登出函数
-  const logout = () => {
-    setUser(null)
+  const logout = async () => {
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+    } catch (error) {
+      console.error('登出失败:', error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // 更新用户信息
@@ -100,13 +120,13 @@ export function AuthProvider({ children }) {
     setLoading(true)
     
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const updatedUser = { ...user, ...updates }
-      setUser(updatedUser)
-      
-      return { success: true, user: updatedUser }
+      const { data, error } = await supabase.auth.updateUser({
+        data: updates
+      })
+
+      if (error) throw error
+
+      return { success: true, user: data.user }
     } catch (error) {
       return { success: false, error: error.message }
     } finally {

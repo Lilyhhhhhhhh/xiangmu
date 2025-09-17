@@ -2,10 +2,6 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/booking": "pages/booking.js",
-  "/booking/confirm": "pages/booking/confirm.js",
-  "/my-bookings": "pages/my-bookings.js",
-  "/services": "pages/services.js",
   "/login": "pages/login.js",
   "/register": "pages/register.js"
 }

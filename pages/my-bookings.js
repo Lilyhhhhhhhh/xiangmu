@@ -6,34 +6,51 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import ProtectedRoute from '../components/auth/ProtectedRoute'
 import { useAuth } from '../hooks/useAuth'
+import { useBookings } from '../hooks/useBookings'
 
 export default function MyBookings() {
   const { user } = useAuth()
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { bookings, loading, error, cancelBooking } = useBookings()
 
-  // 加载用户的预约记录
-  useEffect(() => {
-    if (user) {
-      loadUserBookings()
-    }
-  }, [user])
-
-  const loadUserBookings = () => {
-    try {
-      const allBookings = JSON.parse(localStorage.getItem('userBookings') || '[]')
-      const userBookings = allBookings.filter(booking => booking.userId === user.id)
-      setBookings(userBookings)
-    } catch (error) {
-      console.error('加载预约记录失败:', error)
-    } finally {
-      setLoading(false)
+  const handleCancelBooking = async (bookingId) => {
+    if (confirm('确定要取消这个预约吗？')) {
+      try {
+        await cancelBooking(bookingId)
+        alert('预约已取消')
+      } catch (error) {
+        alert('取消预约失败: ' + error.message)
+      }
     }
   }
   
   const getStatusStyles = (status) => {
-    // 简化状态样式，只保留待确认状态
-    return 'bg-yellow-100 text-yellow-800'
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return '待确认'
+      case 'confirmed':
+        return '已确认'
+      case 'completed':
+        return '已完成'
+      case 'cancelled':
+        return '已取消'
+      default:
+        return status
+    }
   }
 
   return (
@@ -86,42 +103,48 @@ export default function MyBookings() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                            {booking.serviceName}
+                            {booking.services?.name}
                           </h3>
                           <p className="text-gray-600 text-sm mb-3">
-                            {booking.serviceDescription}
+                            {booking.services?.description}
                           </p>
                           
                           {/* 服务详情 */}
                           <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
                             <span className="flex items-center">
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                              </svg>
-                              {booking.serviceCategory}
-                            </span>
-                            <span className="flex items-center">
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              {booking.serviceDuration}分钟
+                              {booking.services?.duration_minutes}分钟
                             </span>
                             <span className="flex items-center">
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                               </svg>
-                              ¥{booking.servicePrice}
+                              ¥{booking.services?.price}
                             </span>
                           </div>
                         </div>
 
-                        {/* 状态标签 */}
-                        <span className={`
-                          inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${getStatusStyles(booking.status)}
-                        `}>
-                          {booking.status}
-                        </span>
+                        {/* 状态标签和操作按钮 */}
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`
+                            inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            ${getStatusStyles(booking.status)}
+                          `}>
+                            {getStatusText(booking.status)}
+                          </span>
+                          
+                          {/* 取消预约按钮 */}
+                          {booking.status === 'pending' && (
+                            <button
+                              onClick={() => handleCancelBooking(booking.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            >
+                              取消预约
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* 预约时间信息 */}
@@ -132,33 +155,48 @@ export default function MyBookings() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             <span className="font-medium">预约日期</span>
-                            <span className="ml-2">{booking.bookingDate}</span>
+                            <span className="ml-2">{new Date(booking.booking_date).toLocaleDateString('zh-CN')}</span>
                           </div>
                           <div className="flex items-center text-gray-600">
                             <svg className="w-4 h-4 mr-1 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span className="font-medium">预约时间</span>
-                            <span className="ml-2">{booking.bookingTime}</span>
+                            <span className="ml-2">{booking.booking_time}</span>
                           </div>
                           <div className="flex items-center text-gray-600">
                             <svg className="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span className="font-medium">创建时间</span>
-                            <span className="ml-2">{new Date(booking.createdAt).toLocaleDateString()}</span>
+                            <span className="ml-2">{new Date(booking.created_at).toLocaleDateString('zh-CN')}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* 温馨提示 */}
-                      {booking.status === '待确认' && (
+                      {booking.status === 'pending' && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <div className="flex items-center text-yellow-800 text-sm">
                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                             </svg>
                             您的预约正在等待确认，我们会尽快联系您
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 备注信息 */}
+                      {booking.notes && (
+                        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                          <div className="flex items-start text-gray-700 text-sm">
+                            <svg className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            <div>
+                              <span className="font-medium">备注：</span>
+                              <span className="ml-1">{booking.notes}</span>
+                            </div>
                           </div>
                         </div>
                       )}

@@ -8,37 +8,19 @@ import TimeSelector from '../components/booking/TimeSelector'
 import Button from '../components/common/Button'
 import Card from '../components/common/Card'
 import { useAuth } from '../hooks/useAuth'
-
-// 模拟服务数据
-const mockServices = [
-  {
-    id: 1,
-    name: '基础面部护理',
-    description: '深层清洁、去角质、补水保湿、适合所有肌肤类型',
-    price: 298,
-    duration: 60,
-    category: '面部护理'
-  },
-  {
-    id: 2,
-    name: '抗衰老面部护理',
-    description: '采用先进抗衰技术、美容肌肽、减少细纹、恢复年轻光彩',
-    price: 498,
-    duration: 90,
-    category: '面部护理'
-  },
-  // 可以添加更多服务...
-]
+import { useServices } from '../hooks/useServices'
 
 export default function Booking() {
   const router = useRouter()
   const { isAuthenticated, mounted } = useAuth()
+  const { getServiceById } = useServices()
   const { serviceId } = router.query
   
   const [currentStep, setCurrentStep] = useState(2) // 从第2步开始（选择时间）
   const [selectedService, setSelectedService] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedTime, setSelectedTime] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   // 检查用户是否已登录 - 只有在客户端挂载后才检查
   useEffect(() => {
@@ -50,19 +32,28 @@ export default function Booking() {
 
   // 根据serviceId获取服务信息
   useEffect(() => {
-    if (serviceId) {
-      const service = mockServices.find(s => s.id === parseInt(serviceId))
-      if (service) {
-        setSelectedService(service)
+    const fetchService = async () => {
+      if (serviceId) {
+        try {
+          setLoading(true)
+          const service = await getServiceById(serviceId)
+          setSelectedService(service)
+        } catch (error) {
+          console.error('获取服务信息失败:', error)
+          router.push('/services')
+        } finally {
+          setLoading(false)
+        }
       } else {
-        // 如果没找到服务，返回服务选择页面
+        // 如果没有serviceId，返回服务选择页面
         router.push('/services')
       }
-    } else {
-      // 如果没有serviceId，返回服务选择页面
-      router.push('/services')
     }
-  }, [serviceId, router])
+
+    if (mounted && isAuthenticated) {
+      fetchService()
+    }
+  }, [serviceId, router, getServiceById, mounted, isAuthenticated])
 
   const handleDateSelect = (date) => {
     setSelectedDate(date)
@@ -92,13 +83,13 @@ export default function Booking() {
   }
 
   // 如果还没有加载服务信息，显示加载状态
-  if (!selectedService) {
+  if (loading || !selectedService) {
     return (
       <Layout>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">加载中...</p>
+            <p className="text-gray-600">加载服务信息...</p>
           </div>
         </div>
       </Layout>
